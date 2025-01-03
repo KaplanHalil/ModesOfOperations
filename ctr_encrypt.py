@@ -1,5 +1,5 @@
 import utils
-import AES_128 as cipher  # Assuming AES_128 implements AES encryption
+import AES_256 as cipher
 
 block_size = 16  # bytes
 max_counter_value = 0xFFFFFFFF  # Maximum value for a 4-byte counter

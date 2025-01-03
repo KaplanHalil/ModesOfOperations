@@ -1,6 +1,7 @@
 import utils
-#import AES_128 as cipher
+#import cipher
 import AES_256 as cipher
+
 
 block_size = 16  #bytes
 ciphertext_size= 8 # Mb
