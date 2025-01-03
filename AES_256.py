@@ -1,4 +1,4 @@
-from Crypto_tools import utils
+import utils
 
 # AES S-Box
 SBOX = [
