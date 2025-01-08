@@ -33,7 +33,9 @@ if __name__ == "__main__":
     iv  = utils.str_to_int_array("0x000102030405060708090A0B0C0D0E0F")
     
     # Generate plaintext
-    plaintext = [(i % 256) for i in range(ciphertext_size * 1024 * 1024)]
+    #plaintext = [(i % 256) for i in range(ciphertext_size * 1024 * 1024)]
+    # Choose plaintext
+    plaintext = [0]*(ciphertext_size * 1024 * 1024)
 
     print("---Plaintext is ready---")
 
