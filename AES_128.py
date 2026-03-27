@@ -72,19 +72,11 @@ INVSBOX = [
     0xe1, 0x69, 0x14, 0x63, 0x55, 0x21, 0x0c, 0x7d
 ]
 
-# AES Rcon values
-RCON = [
-    0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x1B, 0x36, 
-    0x6C, 0xD8, 0xAB, 0x4D
-]
+RCON = [0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x1B, 0x36]
 
-# Substitute bytes using the AES S-box
-def sub_bytes(state):
-    return [SBOX[byte] for byte in state]
-
-# Inverse substitute bytes using the inverse S-box
-def inv_sub_bytes(state):
-    return [INVSBOX[byte] for byte in state]
+# Add round key operation
+def add_round_key(state, round_key):
+    return [state[i] ^ round_key[i] for i in range(len(state))]
 
 # Rotate rows in the state matrix
 def shift_rows(state):
@@ -104,101 +96,84 @@ def inv_shift_rows(state):
         state[12], state[9], state[6], state[3]
     ]
 
-# MixColumns operation 
-def mix_columns(state): 
-    new_state = [0] * 16 
-    for i in range(4): # Process each column 
-        col = state[i*4:(i+1)*4] # Extract the column 
-        new_state[i*4 + 0] = utils.gmul(col[0], 2) ^ utils.gmul(col[1], 3) ^ col[2] ^ col[3] 
-        new_state[i*4 + 1] = col[0] ^ utils.gmul(col[1], 2) ^ utils.gmul(col[2], 3) ^ col[3] 
-        new_state[i*4 + 2] = col[0] ^ col[1] ^ utils.gmul(col[2], 2) ^ utils.gmul(col[3], 3) 
-        new_state[i*4 + 3] = utils.gmul(col[0], 3) ^ col[1] ^ col[2] ^ utils.gmul(col[3], 2) 
+# Substitute bytes using the AES S-box
+def sub_bytes(state):
+    return [SBOX[byte] for byte in state]
+
+# Inverse substitute bytes using the inverse S-box
+def inv_sub_bytes(state):
+    return [INVSBOX[byte] for byte in state]
+
+# MixColumns operation
+def mix_columns(state):
+    new_state = [0] * 16
+    for i in range(4):
+        col = state[i*4:(i+1)*4]
+        new_state[i*4 + 0] = utils.gmul(col[0], 2) ^ utils.gmul(col[1], 3) ^ col[2] ^ col[3]
+        new_state[i*4 + 1] = col[0] ^ utils.gmul(col[1], 2) ^ utils.gmul(col[2], 3) ^ col[3]
+        new_state[i*4 + 2] = col[0] ^ col[1] ^ utils.gmul(col[2], 2) ^ utils.gmul(col[3], 3)
+        new_state[i*4 + 3] = utils.gmul(col[0], 3) ^ col[1] ^ col[2] ^ utils.gmul(col[3], 2)
     return new_state
 
 # Inverse MixColumns operation
 def inv_mix_columns(state):
     new_state = [0] * 16
-    for i in range(4):  # Process each column
-        col = state[i*4:(i+1)*4]  # Extract the column
+    for i in range(4):
+        col = state[i*4:(i+1)*4]
         new_state[i*4 + 0] = utils.gmul(col[0], 0x0e) ^ utils.gmul(col[1], 0x0b) ^ utils.gmul(col[2], 0x0d) ^ utils.gmul(col[3], 0x09)
         new_state[i*4 + 1] = utils.gmul(col[0], 0x09) ^ utils.gmul(col[1], 0x0e) ^ utils.gmul(col[2], 0x0b) ^ utils.gmul(col[3], 0x0d)
         new_state[i*4 + 2] = utils.gmul(col[0], 0x0d) ^ utils.gmul(col[1], 0x09) ^ utils.gmul(col[2], 0x0e) ^ utils.gmul(col[3], 0x0b)
         new_state[i*4 + 3] = utils.gmul(col[0], 0x0b) ^ utils.gmul(col[1], 0x0d) ^ utils.gmul(col[2], 0x09) ^ utils.gmul(col[3], 0x0e)
     return new_state
 
-# Add round key operation
-def add_round_key(state, round_key):
-    return [state[i] ^ round_key[i] for i in range(len(state))]
-
-# AES-256 Key Expansion
+# AES-128 Key Expansion
 def key_expansion(key):
-    # The AES-256 key size is 32 bytes (256 bits), and we need 60 32-bit words (15 rounds, plus the initial key)
-    expanded_keys = list(key)
-    
-    # AES-256 has 14 rounds, so we need a total of 60 words (4 words per round + the initial key)
-    for i in range(8, 60):
-        temp = expanded_keys[-4:]
-        if i % 8 == 0:
-            temp = temp[1:] + temp[:1]  # Rotate word
-            temp = [SBOX[b] for b in temp]  # Apply S-box
-            temp[0] ^= RCON[(i // 8) - 1]  # XOR with the round constant
-        elif i % 8 == 4:
-            temp = [SBOX[b] for b in temp]  # Apply S-box to the word
+    expanded = list(key)
+    for i in range(4, 44):
+        temp = expanded[(i-1)*4:i*4]
+        if i % 4 == 0:
+            temp = temp[1:] + temp[:1]
+            temp = [SBOX[b] for b in temp]
+            temp[0] ^= RCON[(i // 4) - 1]
+        word = [expanded[(i-4)*4 + j] ^ temp[j] for j in range(4)]
+        expanded.extend(word)
+    return [expanded[i:i+16] for i in range(0, len(expanded), 16)]
 
-        expanded_keys.extend([expanded_keys[-32 + j] ^ temp[j] for j in range(4)])
-    
-    return [expanded_keys[i:i + 16] for i in range(0, len(expanded_keys), 16)]
-
-
-# AES encryption
+# AES-128 Encryption
 def encrypt(block, key):
     round_keys = key_expansion(key)
     state = add_round_key(block, round_keys[0])
-
-    for round in range(1, 14):
-        
+    for round in range(1, 10):
         state = sub_bytes(state)
         state = shift_rows(state)
         state = mix_columns(state)
         state = add_round_key(state, round_keys[round])
-            
     state = sub_bytes(state)
     state = shift_rows(state)
-    state = add_round_key(state, round_keys[14])
-
+    state = add_round_key(state, round_keys[10])
     return state
 
-# AES decryption
+# AES-128 Decryption
 def decrypt(block, key):
     round_keys = key_expansion(key)
-    state = add_round_key(block, round_keys[14])
-    
-    for round in range(13, 0, -1):
+    state = add_round_key(block, round_keys[10])
+    for round in range(9, 0, -1):
         state = inv_shift_rows(state)
         state = inv_sub_bytes(state)
         state = add_round_key(state, round_keys[round])
         state = inv_mix_columns(state)
-    
     state = inv_shift_rows(state)
     state = inv_sub_bytes(state)
     state = add_round_key(state, round_keys[0])
-    
     return state
 
 if __name__ == "__main__":
-
-    # AES-256 Test vectors
     plaintext = utils.str_to_int_array("0x00112233445566778899aabbccddeeff")
-    key = utils.str_to_int_array("0x000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f")
-    
-    print("plaintext:",utils.int_to_hex(plaintext))
-    print("key:",utils.int_to_hex(key))
-
+    key = utils.str_to_int_array("0x000102030405060708090a0b0c0d0e0f")
+    print("plaintext:", utils.int_to_hex(plaintext))
+    print("key:", utils.int_to_hex(key))
     ciphertext = encrypt(plaintext, key)
-    
     print("Ciphertext:", utils.int_to_hex(ciphertext))
-
-    print("\n--- Testing AES Decryption ---")
-    decrypted = decrypt(ciphertext, key)
-    print("Decrypted Plaintext:", utils.int_to_hex(decrypted))
-    print("Match Original:", plaintext == decrypted)
+    decoded = decrypt(ciphertext, key)
+    print("Decoded:", utils.int_to_hex(decoded))
+    print("Match", decoded == plaintext)

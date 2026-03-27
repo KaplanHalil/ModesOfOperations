@@ -32,7 +32,59 @@ def gmul(a, b):
 def xor_blocks(block1, block2):
     return [b1 ^ b2 for b1, b2 in zip(block1, block2)]
 
-if __name__ == "__main__":
 
+def int_list_to_bit_list(int_list):
+    return [bit for num in int_list for bit in map(int, f"{num:08b}")]
+
+
+def bit_list_to_int_list(bit_list):
+    if len(bit_list) % 8 != 0:
+        raise ValueError("The length of the bit list must be a multiple of 8.")
+    return [int(''.join(map(str, bit_list[i:i + 8])), 2) for i in range(0, len(bit_list), 8)]
+
+
+def int_to_bit_list(n, width):
+    if n < 0:
+        raise ValueError("Input must be a non-negative integer")
+    if n >= (1 << width):
+        raise ValueError(f"Integer too large to fit in {width} bits")
+    return [int(b) for b in f"{n:0{width}b}"]
+
+
+def bit_list_to_int(bits):
+    return int(''.join(map(str, bits)), 2)
+
+
+def rotate_left(lst, nekadar):
+    n = len(lst)
+    return lst[nekadar % n:] + lst[:nekadar % n]
+
+
+# int array alıp 4 bitlik nipple array veren fonk.
+def convert_to_nibble_array(int_array):
+    nibble_array = []
+    for val in int_array:
+        bits = int_to_bit_list(val, 8)
+        left_nibble = bit_list_to_int(bits[:4])
+        right_nibble = bit_list_to_int(bits[4:])
+        nibble_array.append(left_nibble)
+        nibble_array.append(right_nibble)
+    return nibble_array
+
+
+# 4 bitlik nipple array alıp int array veren fonksiyon
+def nibbles_to_int_array(nibble_array):
+    if len(nibble_array) % 2 != 0:
+        raise ValueError("Nibble array length must be even.")
+    int_array = []
+    for i in range(0, len(nibble_array), 2):
+        left = nibble_array[i]
+        right = nibble_array[i+1]
+        combined = (left << 4) | right
+        int_array.append(combined)
+    return int_array
+
+
+if __name__ == "__main__":
     #key = [0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6, 0xab, 0xf7, 0xcf, 0x9b, 0x6d, 0x8f, 0x6c, 0x7e]
     print(str_to_int_array("0x0001c2"))
